@@ -1,11 +1,12 @@
 #include <features.h>
 #include "libc.h"
 
+#define START_is_start
 #define START "_start"
 
 #include "crt_arch.h"
 
-int main();
+int main(int, char **, char **);
 weak void _init();
 weak void _fini();
 int __libc_start_main(int (*)(), int, char **,

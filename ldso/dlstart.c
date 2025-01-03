@@ -3,6 +3,7 @@
 #include "libc.h"
 
 #ifndef START
+#define START_is_dlstart
 #define START "_dlstart"
 #endif
 
