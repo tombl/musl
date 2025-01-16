@@ -1,23 +1,37 @@
-__asm__(".globaltype __stack_pointer, i32\n");
-static inline void *__get_stack_pointer(void)
-{
-	void* ptr;
-	__asm__ volatile("global.get __stack_pointer\n"
-			 "local.set %0"
-			 : "=r"(ptr));
-	return ptr;
-}
+struct wasm_process_args {
+	int len, envc, argc;
+	char **argv, **envp;
+	char data[];
+};
+
+__attribute__((import_module("linux"), import_name("get_args_length")))
+int wasm_get_args_length(void);
+__attribute__((import_module("linux"), import_name("get_args")))
+int wasm_get_args(struct wasm_process_args *buf);
+
+// TODO: malloc this once mmap is fixed
+static char args_buf[65536 * 4];
+static struct wasm_process_args *args = (void*)args_buf;
 
 #ifdef START_is_dlstart
 hidden void _dlstart_c(size_t *sp, size_t *dynv);
 hidden void _dlstart(void) {
-	_dlstart_c(__get_stack_pointer(), 0);
+	_dlstart_c(0, 0);
 }
 #endif
 
 #ifdef START_is_start
+int main(int, char **, char **);
 hidden void _start_c(long *p);
 hidden void _start(void) {
-	_start_c(__get_stack_pointer());
+	int len = wasm_get_args_length();
+	if (len < 0) __builtin_trap();
+	if (len > sizeof(args_buf)) __builtin_trap();
+
+	if (wasm_get_args(args) < 0) __builtin_trap();
+
+	// TODO: tls, ctors, etc
+
+	exit(main(args->argc, args->argv, args->envp));
 }
 #endif
