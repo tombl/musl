@@ -21,7 +21,10 @@ hidden void _dlstart(void) {
 #endif
 
 #ifdef START_is_start
-int main(int, char **, char **);
+weak int __main_argc_argv(int argc, char **argv);
+weak int main(int argc, char **argv, char **envp) {
+	return __main_argc_argv(argc, argv);
+}
 hidden void _start_c(long *p);
 hidden void _start(void) {
 	int len = wasm_get_args_length();
