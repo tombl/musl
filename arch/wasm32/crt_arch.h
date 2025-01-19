@@ -21,6 +21,7 @@ hidden void _dlstart(void) {
 #endif
 
 #ifdef START_is_start
+void __wasm_call_ctors(void);
 weak int __main_argc_argv(int argc, char **argv);
 weak int main(int argc, char **argv, char **envp) {
 	return __main_argc_argv(argc, argv);
@@ -33,7 +34,8 @@ hidden void _start(void) {
 
 	if (wasm_get_args(args) < 0) __builtin_trap();
 
-	// TODO: tls, ctors, etc
+	// TODO: init tls, libc
+	__wasm_call_ctors();
 
 	exit(main(args->argc, args->argv, args->envp));
 }
