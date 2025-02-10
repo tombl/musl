@@ -22,8 +22,8 @@ hidden void _dlstart(void) {
 
 #ifdef START_is_start
 void __wasm_call_ctors(void);
-weak int __main_argc_argv(int argc, char **argv);
 weak int main(int argc, char **argv, char **envp) {
+	int __main_argc_argv(int argc, char **argv);
 	return __main_argc_argv(argc, argv);
 }
 hidden void _start_c(long *p);
