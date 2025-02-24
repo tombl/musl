@@ -122,6 +122,7 @@ static size_t zi_dotprod(const unsigned char *z, const unsigned char *v, size_t 
 	return y;
 }
 
+#ifndef __wasm__
 static void do_tzset()
 {
 	char buf[NAME_MAX+25], *pathname=buf+24;
@@ -436,3 +437,4 @@ const char *__tm_to_tzname(const struct tm *tm)
 	UNLOCK(lock);
 	return p;
 }
+#endif

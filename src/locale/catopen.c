@@ -11,6 +11,7 @@
 
 #define V(p) be32toh(*(uint32_t *)(p))
 
+#ifndef __wasm__
 static nl_catd do_catopen(const char *name)
 {
 	size_t size;
@@ -77,3 +78,4 @@ nl_catd catopen(const char *name, int oflag)
 	errno = ENOENT;
 	return (nl_catd)-1;
 }
+#endif

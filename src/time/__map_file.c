@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include "syscall.h"
 
+#ifndef __wasm__
 const char unsigned *__map_file(const char *pathname, size_t *size)
 {
 	struct stat st;
@@ -16,3 +17,4 @@ const char unsigned *__map_file(const char *pathname, size_t *size)
 	__syscall(SYS_close, fd);
 	return map == MAP_FAILED ? 0 : map;
 }
+#endif

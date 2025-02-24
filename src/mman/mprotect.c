@@ -2,6 +2,7 @@
 #include "libc.h"
 #include "syscall.h"
 
+#ifndef __wasm__
 int __mprotect(void *addr, size_t len, int prot)
 {
 	size_t start, end;
@@ -11,3 +12,4 @@ int __mprotect(void *addr, size_t len, int prot)
 }
 
 weak_alias(__mprotect, mprotect);
+#endif

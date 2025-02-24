@@ -8,6 +8,7 @@ static void *unmap_base;
 static size_t unmap_size;
 static char shared_stack[256];
 
+#ifndef __wasm__
 static void do_unmap()
 {
 	__syscall(SYS_munmap, unmap_base, unmap_size);
@@ -22,3 +23,4 @@ void __unmapself(void *base, size_t size)
 	unmap_size = size;
 	CRTJMP(do_unmap, stack);
 }
+#endif

@@ -7,6 +7,10 @@
 #include "lock.h"
 #include "syscall.h"
 #include "fork_impl.h"
+#include "atomic.h"
+
+void *sbrk(intptr_t);
+int brk(void *);
 
 #define ALIGN 16
 
@@ -37,7 +41,7 @@ volatile int *const __bump_lockptr = lock;
 
 static void *__simple_malloc(size_t n)
 {
-	static uintptr_t brk, cur, end;
+	static uintptr_t brk_, cur, end;
 	static unsigned mmap_step;
 	size_t align=1;
 	void *p;
@@ -59,16 +63,19 @@ static void *__simple_malloc(size_t n)
 		size_t req = n - (end-cur) + PAGE_SIZE-1 & -PAGE_SIZE;
 
 		if (!cur) {
-			brk = __syscall(SYS_brk, 0);
-			brk += -brk & PAGE_SIZE-1;
-			cur = end = brk;
+			brk_ = (uintptr_t)sbrk(0);
+			brk_ += -brk_ & PAGE_SIZE-1;
+			cur = end = brk_;
 		}
 
-		if (brk == end && req < SIZE_MAX-brk
-		    && !traverses_stack_p(brk, brk+req)
-		    && __syscall(SYS_brk, brk+req)==brk+req) {
-			brk = end += req;
+		if (brk_ == end && req < SIZE_MAX-brk_
+		    && !traverses_stack_p(brk_, brk_+req)
+		    && (uintptr_t)sbrk(req) != -1) {
+			brk_ = end += req;
 		} else {
+			#ifdef __wasm__
+			a_crash();
+			#else
 			int new_area = 0;
 			req = n + PAGE_SIZE-1 & -PAGE_SIZE;
 			/* Only make a new area rather than individual mmap
@@ -94,6 +101,7 @@ static void *__simple_malloc(size_t n)
 			}
 			cur = (uintptr_t)mem;
 			end = cur + req;
+			#endif
 		}
 	}
 

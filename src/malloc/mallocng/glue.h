@@ -24,7 +24,7 @@
 #define realloc __libc_realloc
 #define free __libc_free
 
-#define USE_MADV_FREE 0
+// #define USE_MADV_FREE
 
 #if USE_REAL_ASSERT
 #include <assert.h>
@@ -33,7 +33,9 @@
 #define assert(x) do { if (!(x)) a_crash(); } while(0)
 #endif
 
+#ifndef __wasm__
 #define brk(p) ((uintptr_t)__syscall(SYS_brk, p))
+#endif
 
 #define mmap __mmap
 #define madvise __madvise
