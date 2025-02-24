@@ -212,7 +212,6 @@
 #define __NR_sendmsg 211
 #define __NR_recvmsg 212
 #define __NR_readahead 213
-#define __NR_brk 214
 #define __NR_munmap 215
 #define __NR_mremap 216
 #define __NR_add_key 217

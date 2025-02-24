@@ -33,7 +33,9 @@
 #define assert(x) do { if (!(x)) a_crash(); } while(0)
 #endif
 
+#ifndef __wasm__
 #define brk(p) ((uintptr_t)__syscall(SYS_brk, p))
+#endif
 
 #define mmap __mmap
 #define madvise __madvise
