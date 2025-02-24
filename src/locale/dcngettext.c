@@ -122,6 +122,7 @@ static char *dummy_gettextdomain()
 
 weak_alias(dummy_gettextdomain, __gettextdomain);
 
+#ifndef __wasm__
 char *dcngettext(const char *domainname, const char *msgid1, const char *msgid2, unsigned long int n, int category)
 {
 	static struct msgcat *volatile cats;
@@ -281,3 +282,4 @@ char *dgettext(const char *domainname, const char *msgid)
 {
 	return dcngettext(domainname, msgid, 0, 1, LC_MESSAGES);
 }
+#endif

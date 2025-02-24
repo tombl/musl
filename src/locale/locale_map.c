@@ -7,6 +7,10 @@
 #include "lock.h"
 #include "fork_impl.h"
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #define malloc __libc_malloc
 #define calloc undef
 #define realloc undef
@@ -74,21 +78,26 @@ const struct __locale_map *__get_locale(int cat, const char *val)
 		buf[l] = '/';
 		memcpy(buf+l+1, val, n);
 		buf[l+1+n] = 0;
-		size_t map_size;
-		const void *map = __map_file(buf, &map_size);
-		if (map) {
-			new = malloc(sizeof *new);
-			if (!new) {
-				__munmap((void *)map, map_size);
-				break;
+		int fd = open(buf, O_RDONLY);
+		if (fd >= 0) {
+			struct stat st;
+			if (fstat(fd, &st) == 0) {
+				size_t map_size = st.st_size;
+				void *map = __libc_malloc(map_size);
+				if (map && read(fd, map, map_size) == map_size) {
+					new = malloc(sizeof *new);
+					if (new) {
+						new->map = map;
+						new->map_size = map_size;
+						memcpy(new->name, val, n);
+						new->name[n] = 0;
+						new->next = loc_head;
+						loc_head = new;
+					} else __libc_free(map);
+				} else __libc_free(map);
 			}
-			new->map = map;
-			new->map_size = map_size;
-			memcpy(new->name, val, n);
-			new->name[n] = 0;
-			new->next = loc_head;
-			loc_head = new;
-			break;
+			close(fd);
+			if (new) break;
 		}
 	}
 

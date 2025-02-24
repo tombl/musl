@@ -7,6 +7,7 @@
 #include "lock.h"
 #include "syscall.h"
 #include "fork_impl.h"
+#include "atomic.h"
 
 void *sbrk(intptr_t);
 int brk(void *);
@@ -72,6 +73,9 @@ static void *__simple_malloc(size_t n)
 		    && (uintptr_t)sbrk(req) != -1) {
 			brk_ = end += req;
 		} else {
+			#ifdef __wasm__
+			a_crash();
+			#else
 			int new_area = 0;
 			req = n + PAGE_SIZE-1 & -PAGE_SIZE;
 			/* Only make a new area rather than individual mmap
@@ -97,6 +101,7 @@ static void *__simple_malloc(size_t n)
 			}
 			cur = (uintptr_t)mem;
 			end = cur + req;
+			#endif
 		}
 	}
 

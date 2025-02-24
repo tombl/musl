@@ -131,6 +131,9 @@ static void static_init_tls(size_t *aux)
 		+ MIN_TLS_ALIGN-1 & -MIN_TLS_ALIGN;
 
 	if (libc.tls_size > sizeof builtin_tls) {
+#ifdef __wasm__
+	mem = __libc_malloc(libc.tls_size);
+#else
 #ifndef SYS_mmap2
 #define SYS_mmap2 SYS_mmap
 #endif
@@ -138,6 +141,7 @@ static void static_init_tls(size_t *aux)
 			SYS_mmap2,
 			0, libc.tls_size, PROT_READ|PROT_WRITE,
 			MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+#endif
 		/* -4095...-1 cast to void * will crash on dereference anyway,
 		 * so don't bloat the init code checking for error codes and
 		 * explicitly calling a_crash(). */

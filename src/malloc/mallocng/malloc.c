@@ -222,7 +222,7 @@ static struct meta *alloc_group(int sc, size_t req)
 		p = sbrk(needed);
 #else
 		p = mmap(0, needed, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
-		#endif
+#endif
 		if (p==MAP_FAILED) {
 			free_meta(m);
 			return 0;
@@ -281,6 +281,7 @@ void *malloc(size_t n)
 	int idx;
 	int ctr;
 
+#ifndef __wasm__
 	if (n >= MMAP_THRESHOLD) {
 		size_t needed = n + IB + UNIT;
 		void *p = mmap(0, needed, PROT_READ|PROT_WRITE,
@@ -307,6 +308,7 @@ void *malloc(size_t n)
 		idx = 0;
 		goto success;
 	}
+#endif
 
 	sc = size_to_class(n);
 

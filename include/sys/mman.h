@@ -113,11 +113,13 @@ extern "C" {
 
 #include <bits/mman.h>
 
+#ifndef __wasm__
 void *mmap (void *, size_t, int, int, int, off_t);
 int munmap (void *, size_t);
 
 int mprotect (void *, size_t, int);
 int msync (void *, size_t, int);
+#endif
 
 int posix_madvise (void *, size_t, int);
 

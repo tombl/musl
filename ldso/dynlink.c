@@ -1,3 +1,4 @@
+#ifndef __wasm__
 #define _GNU_SOURCE
 #define SYSCALL_NO_TLS 1
 #include <stdlib.h>
@@ -2436,3 +2437,5 @@ static void error_impl(const char *fmt, ...)
 static void error_noop(const char *fmt, ...)
 {
 }
+
+#endif

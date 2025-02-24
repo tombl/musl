@@ -29,6 +29,7 @@ volatile int *const __sem_open_lockptr = lock;
 
 #define FLAGS (O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NONBLOCK)
 
+#ifndef __wasm__
 sem_t *sem_open(const char *name, int flags, ...)
 {
 	va_list ap;
@@ -180,3 +181,4 @@ int sem_close(sem_t *sem)
 	munmap(sem, sizeof *sem);
 	return 0;
 }
+#endif

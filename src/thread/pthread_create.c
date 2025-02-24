@@ -291,6 +291,9 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 	}
 
 	if (!tsd) {
+		#ifdef __wasm__
+		map = __libc_malloc(size);
+		#else
 		if (guard) {
 			map = __mmap(0, size, PROT_NONE, MAP_PRIVATE|MAP_ANON, -1, 0);
 			if (map == MAP_FAILED) goto fail;
@@ -303,6 +306,7 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 			map = __mmap(0, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
 			if (map == MAP_FAILED) goto fail;
 		}
+		#endif
 		tsd = map + size - __pthread_tsd_size;
 		if (!stack) {
 			stack = tsd - libc.tls_size;
@@ -382,7 +386,13 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 	__release_ptc();
 
 	if (ret < 0) {
-		if (map) __munmap(map, size);
+		if (map) {
+			#ifdef __wasm__
+			__libc_free(map);
+			#else
+			__munmap(map, size);
+			#endif
+		}
 		return -ret;
 	}
 
