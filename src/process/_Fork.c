@@ -26,6 +26,7 @@ void __post_Fork(int ret)
 	if (!ret) __aio_atfork(1);
 }
 
+#ifndef __wasm__
 pid_t _Fork(void)
 {
 	pid_t ret;
@@ -41,3 +42,4 @@ pid_t _Fork(void)
 	__restore_sigs(&set);
 	return __syscall_ret(ret);
 }
+#endif

@@ -3,6 +3,7 @@
 #include <signal.h>
 #include "syscall.h"
 
+#ifndef __wasm__
 pid_t vfork(void)
 {
 	/* vfork syscall cannot be made from C code */
@@ -12,3 +13,4 @@ pid_t vfork(void)
 	return syscall(SYS_clone, SIGCHLD, 0);
 #endif
 }
+#endif
