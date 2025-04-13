@@ -7,18 +7,28 @@
 #include "pthread_impl.h"
 
 extern void __heap_end; // synthesised by linker
+static void *initial_end; // end of the initial heap
+
 static void *current = &__heap_end;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static int _brk(void *end) {
+	if (!initial_end) initial_end = (void *)(__builtin_wasm_memory_size(0) * PAGE_SIZE);
+
 	if (end < current) goto fail;
 
 	size_t inc = (uintptr_t)end - (uintptr_t)current;
 
 	// as number of pages, rounding up
 	inc = (inc + PAGE_SIZE - 1) / PAGE_SIZE;
-	
-	if (__builtin_wasm_memory_grow(0, inc) == SIZE_MAX) goto fail;	
+
+	while (inc && current < initial_end) {
+		current += PAGE_SIZE;
+		inc--;
+	}
+	if (!inc) return 0;
+
+	if (__builtin_wasm_memory_grow(0, inc) == SIZE_MAX) goto fail;
 	current = end;
 
 	return 0;
