@@ -1,3 +1,4 @@
+#ifndef __wasm__
 #ifndef	_SYS_MMAN_H
 #define	_SYS_MMAN_H
 #ifdef __cplusplus
@@ -113,13 +114,12 @@ extern "C" {
 
 #include <bits/mman.h>
 
-#ifndef __wasm__
+
 void *mmap (void *, size_t, int, int, int, off_t);
 int munmap (void *, size_t);
 
 int mprotect (void *, size_t, int);
 int msync (void *, size_t, int);
-#endif
 
 int posix_madvise (void *, size_t, int);
 
@@ -150,5 +150,6 @@ int shm_unlink (const char *);
 
 #ifdef __cplusplus
 }
+#endif
 #endif
 #endif
