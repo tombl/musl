@@ -11,7 +11,6 @@
 
 #define V(p) be32toh(*(uint32_t *)(p))
 
-#ifndef __wasm__
 static nl_catd do_catopen(const char *name)
 {
 	size_t size;
@@ -19,7 +18,7 @@ static nl_catd do_catopen(const char *name)
 	/* Size recorded in the file must match file size; otherwise
 	 * the information needed to unmap the file will be lost. */
 	if (!map || V(map) != 0xff88ff89 || 20+V(map+8) != size) {
-		if(map) munmap((void *)map, size);
+		if(map) __unmap_file((void *)map, size);
 		errno = ENOENT;
 		return (nl_catd)-1;
 	}
@@ -78,4 +77,3 @@ nl_catd catopen(const char *name, int oflag)
 	errno = ENOENT;
 	return (nl_catd)-1;
 }
-#endif

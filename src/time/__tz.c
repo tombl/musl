@@ -122,7 +122,6 @@ static size_t zi_dotprod(const unsigned char *z, const unsigned char *v, size_t 
 	return y;
 }
 
-#ifndef __wasm__
 static void do_tzset()
 {
 	char buf[NAME_MAX+25], *pathname=buf+24;
@@ -140,7 +139,7 @@ static void do_tzset()
 
 	for (i=0; i<5; i++) r0[i] = r1[i] = 0;
 
-	if (zi) __munmap((void *)zi, map_size);
+	if (zi) __unmap_file((void *)zi, map_size);
 
 	/* Cache the old value of TZ to check if it has changed. Avoid
 	 * free so as not to pull it into static programs. Growth
@@ -189,7 +188,7 @@ static void do_tzset()
 		if (!map) s = __utc;
 	}
 	if (map && (map_size < 44 || memcmp(map, "TZif", 4))) {
-		__munmap((void *)map, map_size);
+		__unmap_file((void *)map, map_size);
 		map = 0;
 		s = __utc;
 	}
@@ -437,4 +436,3 @@ const char *__tm_to_tzname(const struct tm *tm)
 	UNLOCK(lock);
 	return p;
 }
-#endif
