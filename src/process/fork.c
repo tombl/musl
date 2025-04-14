@@ -44,6 +44,7 @@ static void dummy_0(void) { }
 weak_alias(dummy_0, __tl_lock);
 weak_alias(dummy_0, __tl_unlock);
 
+#ifndef __wasm__
 pid_t fork(void)
 {
 	sigset_t set;
@@ -88,3 +89,4 @@ pid_t fork(void)
 	if (ret<0) errno = errno_save;
 	return ret;
 }
+#endif

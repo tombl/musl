@@ -9,7 +9,9 @@ extern "C" {
 #include <sys/ioctl.h>
 
 int openpty(int *, int *, char *, const struct termios *, const struct winsize *);
+#ifndef __wasm__
 int forkpty(int *, char *, const struct termios *, const struct winsize *);
+#endif
 
 #ifdef __cplusplus
 }

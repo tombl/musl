@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <wordexp.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -9,6 +10,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sched.h>
 #include "pthread_impl.h"
 
 static void reap(pid_t pid)
@@ -21,6 +23,22 @@ static char *getword(FILE *f)
 {
 	char *s = 0;
 	return getdelim(&s, (size_t [1]){0}, 0, f) < 0 ? 0 : s;
+}
+
+struct forked_args {
+	const char *s;
+	char *redir;
+	int *p;
+};
+
+static int do_wordexp_forked(void *args_) {
+	struct forked_args *args = args_;
+	if (args->p[1] == 1) fcntl(1, F_SETFD, 0);
+	else dup2(args->p[1], 1);
+	execl("/bin/sh", "sh", "-c",
+		"eval \"printf %s\\\\\\\\0 x $1 $2\"",
+		"sh", args->s, args->redir, (char *)0);
+	_exit(1);
 }
 
 static int do_wordexp(const char *s, wordexp_t *we, int flags)
@@ -98,20 +116,19 @@ static int do_wordexp(const char *s, wordexp_t *we, int flags)
 
 	if (pipe2(p, O_CLOEXEC) < 0) goto nospace;
 	__block_all_sigs(&set);
-	pid = fork();
-	__restore_sigs(&set);
+	char child_stack[4096];
+	struct forked_args args = {
+		.s = s,
+		.redir = redir,
+		.p = p,
+	};
+  pid = clone(do_wordexp_forked, child_stack + sizeof(child_stack),
+              CLONE_VM | CLONE_VFORK | SIGCHLD, &args);
+  __restore_sigs(&set);
 	if (pid < 0) {
 		close(p[0]);
 		close(p[1]);
 		goto nospace;
-	}
-	if (!pid) {
-		if (p[1] == 1) fcntl(1, F_SETFD, 0);
-		else dup2(p[1], 1);
-		execl("/bin/sh", "sh", "-c",
-			"eval \"printf %s\\\\\\\\0 x $1 $2\"",
-			"sh", s, redir, (char *)0);
-		_exit(1);
 	}
 	close(p[1]);
 	
