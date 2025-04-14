@@ -85,8 +85,10 @@ unsigned alarm(unsigned);
 unsigned sleep(unsigned);
 int pause(void);
 
+#ifndef __wasm__
 pid_t fork(void);
 pid_t _Fork(void);
+#endif
 int execve(const char *, char *const [], char *const []);
 int execv(const char *, char *const []);
 int execle(const char *, const char *, ...);
@@ -162,7 +164,9 @@ unsigned ualarm(unsigned, unsigned);
 #define L_XTND 2
 int brk(void *);
 void *sbrk(intptr_t);
+#ifndef __wasm__
 pid_t vfork(void);
+#endif
 int vhangup(void);
 int chroot(const char *);
 int getpagesize(void);
