@@ -34,7 +34,8 @@ hidden void _start(void) {
 
 	if (wasm_get_args(args) < 0) __builtin_trap();
 
-	// TODO: init tls, libc
+	__init_libc(args->envp, args->argv[0]);
+	__libc_start_init();
 	__wasm_call_ctors();
 
 	exit(main(args->argc, args->argv, args->envp));
