@@ -146,7 +146,7 @@ void free(void *p)
 	struct mapinfo mi = nontrivial_free(g, idx);
 	unlock();
 	if (mi.len) {
-		puts("attempted to munmap");
+		// puts("attempted to munmap");
 		// int e = errno;
 		// munmap(mi.base, mi.len);
 		// errno = e;
