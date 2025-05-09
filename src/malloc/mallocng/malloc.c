@@ -281,18 +281,25 @@ void *malloc(size_t n)
 	int idx;
 	int ctr;
 
-#ifndef __wasm__
 	if (n >= MMAP_THRESHOLD) {
 		size_t needed = n + IB + UNIT;
+#ifdef __wasm__
+		void *p = sbrk(needed);
+#elif
 		void *p = mmap(0, needed, PROT_READ|PROT_WRITE,
 			MAP_PRIVATE|MAP_ANON, -1, 0);
+#endif
 		if (p==MAP_FAILED) return 0;
 		wrlock();
 		step_seq();
 		g = alloc_meta();
 		if (!g) {
 			unlock();
+#ifdef __wasm__
+			printf("malloc: alloc_meta failed");
+#elif
 			munmap(p, needed);
+#endif
 			return 0;
 		}
 		g->mem = p;
@@ -308,7 +315,6 @@ void *malloc(size_t n)
 		idx = 0;
 		goto success;
 	}
-#endif
 
 	sc = size_to_class(n);
 
