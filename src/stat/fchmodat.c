@@ -7,8 +7,11 @@ int fchmodat(int fd, const char *path, mode_t mode, int flag)
 {
 	if (!flag) return syscall(SYS_fchmodat, fd, path, mode);
 
-	int ret = __syscall(SYS_fchmodat2, fd, path, mode, flag);
+	int ret;
+#ifdef SYS_fchmodat2
+	ret = __syscall(SYS_fchmodat2, fd, path, mode, flag);
 	if (ret != -ENOSYS) return __syscall_ret(ret);
+#endif
 
 	if (flag != AT_SYMLINK_NOFOLLOW)
 		return __syscall_ret(-EINVAL);
