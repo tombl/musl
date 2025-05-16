@@ -285,7 +285,7 @@ void *malloc(size_t n)
 		size_t needed = n + IB + UNIT;
 #ifdef __wasm__
 		void *p = sbrk(needed);
-#elif
+#else
 		void *p = mmap(0, needed, PROT_READ|PROT_WRITE,
 			MAP_PRIVATE|MAP_ANON, -1, 0);
 #endif
@@ -297,7 +297,7 @@ void *malloc(size_t n)
 			unlock();
 #ifdef __wasm__
 			printf("malloc: alloc_meta failed");
-#elif
+#else
 			munmap(p, needed);
 #endif
 			return 0;
