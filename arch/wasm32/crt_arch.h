@@ -22,9 +22,9 @@ hidden void _dlstart(void) {
 
 #ifdef START_is_start
 void __wasm_call_ctors(void);
-weak int main(int argc, char **argv, char **envp) {
+weak int __main_void(void) {
 	int __main_argc_argv(int argc, char **argv);
-	return __main_argc_argv(argc, argv);
+	return __main_argc_argv(args->argc, args->argv);
 }
 hidden void _start_c(long *p);
 hidden void _start(void) {
@@ -38,6 +38,6 @@ hidden void _start(void) {
 	__libc_start_init();
 	__wasm_call_ctors();
 
-	exit(main(args->argc, args->argv, args->envp));
+	exit(__main_void());
 }
 #endif
