@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <stdarg.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sched.h>
 #include "pthread_impl.h"
@@ -15,15 +16,17 @@ struct clone_start_args {
 
 static int clone_start(void *arg)
 {
-	struct clone_start_args *csa = arg;
+	struct clone_start_args csa = *(struct clone_start_args *)arg;
+	free(arg);
 	__post_Fork(0);
-	__restore_sigs(&csa->sigmask);
-	return csa->func(csa->arg);
+	__restore_sigs(&csa.sigmask);
+	return csa.func(csa.arg);
 }
 
 int clone(int (*func)(void *), void *stack, int flags, void *arg, ...)
 {
-	struct clone_start_args csa;
+	struct clone_start_args *csa;
+	sigset_t sigmask;
 	va_list ap;
 	pid_t *ptid = 0, *ctid = 0;
 	void  *tls = 0;
@@ -50,16 +53,23 @@ int clone(int (*func)(void *), void *stack, int flags, void *arg, ...)
 	if (flags & CLONE_VM) return __syscall_ret(
 		__clone(func, stack, flags, arg, ptid, tls, ctid));
 
-	__block_all_sigs(&csa.sigmask);
+	csa = malloc(sizeof *csa);
+	if (!csa)
+		return __syscall_ret(-ENOMEM);
+
+	__block_all_sigs(&sigmask);
 	LOCK(__abort_lock);
 
 	/* Setup the a wrapper start function for the child process to do
 	 * mimic _Fork in producing a consistent execution state. */
-	csa.func = func;
-	csa.arg = arg;
-	int ret = __clone(clone_start, stack, flags, &csa, ptid, tls, ctid);
+	csa->func = func;
+	csa->arg = arg;
+	csa->sigmask = sigmask;
+	int ret = __clone(clone_start, stack, flags, csa, ptid, tls, ctid);
 
 	__post_Fork(ret);
-	__restore_sigs(&csa.sigmask);
+	__restore_sigs(&sigmask);
+	if (ret < 0)
+		free(csa);
 	return __syscall_ret(ret);
 }
