@@ -257,6 +257,8 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 	unsigned char *wasm_tls;
 	size_t wasm_tls_size = __builtin_wasm_tls_size();
 	size_t wasm_tls_align = __builtin_wasm_tls_align();
+	/* LLVM represents an empty TLS segment with zero alignment. */
+	if (!wasm_tls_align) wasm_tls_align = 1;
 	size_t wasm_tls_space = wasm_tls_size + wasm_tls_align - 1;
 #else
 	size_t wasm_tls_space = 0;
