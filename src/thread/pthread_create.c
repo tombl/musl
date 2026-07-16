@@ -4,8 +4,13 @@
 #include "libc.h"
 #include "lock.h"
 #include <sys/mman.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+
+#ifdef __wasm__
+hidden void __wasm_init_tls(void *);
+#endif
 
 static void dummy_0()
 {
@@ -68,7 +73,6 @@ _Noreturn void __pthread_exit(void *result)
 	}
 
 	__pthread_tsd_run_dtors();
-
 	__block_app_sigs(&set);
 
 	/* This atomic potentially competes with a concurrent pthread_detach
@@ -187,6 +191,9 @@ void __do_cleanup_pop(struct __ptcb *cb)
 struct start_args {
 	void *(*start_func)(void *);
 	void *start_arg;
+#ifdef __wasm__
+	void *wasm_tls;
+#endif
 	volatile int control;
 	unsigned long sig_mask[_NSIG/8/sizeof(long)];
 };
@@ -194,6 +201,9 @@ struct start_args {
 static int start(void *p)
 {
 	struct start_args *args = p;
+#ifdef __wasm__
+	__wasm_init_tls(args->wasm_tls);
+#endif
 	int state = args->control;
 	if (state) {
 		if (a_cas(&args->control, 1, 2)==1)
@@ -211,6 +221,9 @@ static int start(void *p)
 static int start_c11(void *p)
 {
 	struct start_args *args = p;
+#ifdef __wasm__
+	__wasm_init_tls(args->wasm_tls);
+#endif
 	int (*start)(void*) = (int(*)(void*)) args->start_func;
 	__pthread_exit((void *)(uintptr_t)start(args->start_arg));
 	return 0;
@@ -240,6 +253,14 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 	size_t size, guard;
 	struct pthread *self, *new;
 	unsigned char *map = 0, *stack = 0, *tsd = 0, *stack_limit;
+#ifdef __wasm__
+	unsigned char *wasm_tls;
+	size_t wasm_tls_size = __builtin_wasm_tls_size();
+	size_t wasm_tls_align = __builtin_wasm_tls_align();
+	size_t wasm_tls_space = wasm_tls_size + wasm_tls_align - 1;
+#else
+	size_t wasm_tls_space = 0;
+#endif
 	unsigned flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND
 		| CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS
 		| CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID | CLONE_DETACHED;
@@ -269,7 +290,7 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 	}
 
 	if (attr._a_stackaddr) {
-		size_t need = libc.tls_size + __pthread_tsd_size;
+		size_t need = libc.tls_size + __pthread_tsd_size + wasm_tls_space;
 		size = attr._a_stacksize;
 		stack = (void *)(attr._a_stackaddr & -16);
 		stack_limit = (void *)(attr._a_stackaddr - size);
@@ -279,7 +300,12 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 		if (need < size/8 && need < 2048) {
 			tsd = stack - __pthread_tsd_size;
 			stack = tsd - libc.tls_size;
-			memset(stack, 0, need);
+#ifdef __wasm__
+			wasm_tls = (void *)((uintptr_t)(stack - wasm_tls_size)
+				& -wasm_tls_align);
+			stack = wasm_tls;
+#endif
+			memset(stack, 0, (uintptr_t)attr._a_stackaddr - (uintptr_t)stack);
 		} else {
 			size = ROUND(need);
 		}
@@ -287,12 +313,13 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 	} else {
 		guard = ROUND(attr._a_guardsize);
 		size = guard + ROUND(attr._a_stacksize
-			+ libc.tls_size +  __pthread_tsd_size);
+			+ libc.tls_size + __pthread_tsd_size + wasm_tls_space);
 	}
 
 	if (!tsd) {
 		#ifdef __wasm__
-		map = __libc_malloc(size);
+		map = __libc_calloc(1, size);
+		if (!map) goto fail;
 		#else
 		if (guard) {
 			map = __mmap(0, size, PROT_NONE, MAP_PRIVATE|MAP_ANON, -1, 0);
@@ -308,8 +335,15 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 		}
 		#endif
 		tsd = map + size - __pthread_tsd_size;
+#ifdef __wasm__
+		wasm_tls = (void *)((uintptr_t)(tsd - libc.tls_size - wasm_tls_size)
+			& -wasm_tls_align);
+#endif
 		if (!stack) {
 			stack = tsd - libc.tls_size;
+#ifdef __wasm__
+			stack = wasm_tls;
+#endif
 			stack_limit = map + guard;
 		}
 	}
@@ -340,6 +374,9 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 	struct start_args *args = (void *)stack;
 	args->start_func = entry;
 	args->start_arg = arg;
+#ifdef __wasm__
+	args->wasm_tls = wasm_tls;
+#endif
 	args->control = attr._a_sched ? 1 : 0;
 
 	/* Application signals (but not the synccall signal) must be

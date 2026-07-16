@@ -1,10 +1,13 @@
 #define _GNU_SOURCE
 #include <stdarg.h>
+#ifndef __wasm__
 #include <stdlib.h>
 #include <unistd.h>
+#endif
 #include <sched.h>
 #include "pthread_impl.h"
 #include "syscall.h"
+#ifndef __wasm__
 #include "lock.h"
 #include "fork_impl.h"
 
@@ -22,11 +25,14 @@ static int clone_start(void *arg)
 	__restore_sigs(&csa.sigmask);
 	return csa.func(csa.arg);
 }
+#endif
 
 int clone(int (*func)(void *), void *stack, int flags, void *arg, ...)
 {
+#ifndef __wasm__
 	struct clone_start_args *csa;
 	sigset_t sigmask;
+#endif
 	va_list ap;
 	pid_t *ptid = 0, *ctid = 0;
 	void  *tls = 0;
@@ -34,7 +40,11 @@ int clone(int (*func)(void *), void *stack, int flags, void *arg, ...)
 	/* Flags that produce an invalid thread/TLS state are disallowed. */
 	int badflags = CLONE_THREAD | CLONE_SETTLS | CLONE_CHILD_CLEARTID;
 
-	if ((flags & badflags) || !stack)
+	if ((flags & badflags) || !stack
+#ifdef __wasm__
+	    || !(flags & CLONE_VM)
+#endif
+	   )
 		return __syscall_ret(-EINVAL);
 
 	va_start(ap, arg);
@@ -46,13 +56,10 @@ int clone(int (*func)(void *), void *stack, int flags, void *arg, ...)
 		ctid = va_arg(ap, pid_t *);
 	va_end(ap);
 
-	/* If CLONE_VM is used, it's impossible to give the child a consistent
-	 * thread structure. In this case, the best we can do is assume the
-	 * caller is content with an extremely restrictive execution context
-	 * like the one vfork() would provide. */
 	if (flags & CLONE_VM) return __syscall_ret(
 		__clone(func, stack, flags, arg, ptid, tls, ctid));
 
+#ifndef __wasm__
 	csa = malloc(sizeof *csa);
 	if (!csa)
 		return __syscall_ret(-ENOMEM);
@@ -60,8 +67,6 @@ int clone(int (*func)(void *), void *stack, int flags, void *arg, ...)
 	__block_all_sigs(&sigmask);
 	LOCK(__abort_lock);
 
-	/* Setup the a wrapper start function for the child process to do
-	 * mimic _Fork in producing a consistent execution state. */
 	csa->func = func;
 	csa->arg = arg;
 	csa->sigmask = sigmask;
@@ -72,4 +77,7 @@ int clone(int (*func)(void *), void *stack, int flags, void *arg, ...)
 	if (ret < 0)
 		free(csa);
 	return __syscall_ret(ret);
+#else
+	return __syscall_ret(-EINVAL);
+#endif
 }
