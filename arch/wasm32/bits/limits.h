@@ -1,1 +1,1 @@
-#define PAGE_SIZE 16384
+#define PAGESIZE 65536
