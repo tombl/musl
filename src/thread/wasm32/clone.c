@@ -18,10 +18,22 @@ struct clone_entry_arg {
   void *arg;
 };
 
+__attribute__((__noreturn__, __noinline__))
+static void clone_entry_inner(int (*func)(void *), void *arg) {
+  int status = func(arg);
+  __syscall(SYS_exit, status);
+  __builtin_unreachable();
+}
+
 static int clone_entry(void *arg_) {
-  struct clone_entry_arg arg = *(struct clone_entry_arg *)arg_;
-  set_stack_pointer(arg.stack);
-  return arg.func(arg.arg);
+  struct clone_entry_arg *arg = arg_;
+  void *stack = arg->stack;
+  int (*func)(void *) = arg->func;
+  void *user_arg = arg->arg;
+
+  set_stack_pointer(stack);
+  clone_entry_inner(func, user_arg);
+  __builtin_unreachable();
 }
 
 int __clone(int (*func)(void *), void *stack, int flags, void *arg, ...) {

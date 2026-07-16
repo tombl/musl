@@ -38,12 +38,12 @@ int clone(int (*func)(void *), void *stack, int flags, void *arg, ...)
 		return __syscall_ret(-EINVAL);
 
 	va_start(ap, arg);
-	if (flags & (CLONE_PIDFD | CLONE_PARENT_SETTID | CLONE_CHILD_SETTID))
+	if (flags & (CLONE_PIDFD | CLONE_PARENT_SETTID))
 	 	ptid = va_arg(ap, pid_t *);
-	if (flags & CLONE_CHILD_SETTID) {
+	if (flags & CLONE_SETTLS)
 		tls = va_arg(ap, void *);
+	if (flags & (CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID))
 		ctid = va_arg(ap, pid_t *);
-	}
 	va_end(ap);
 
 	/* If CLONE_VM is used, it's impossible to give the child a consistent
