@@ -3,7 +3,7 @@
 #include "pthread_impl.h"
 #include "syscall.h"
 
-hidden long __cancel(), __syscall_cp_asm(), __syscall_cp_c();
+hidden long __cancel(), __syscall_cp_c();
 
 long __cancel()
 {
@@ -14,9 +14,13 @@ long __cancel()
 	return -ECANCELED;
 }
 
+#ifndef __wasm__
+hidden long __syscall_cp_asm();
+
 long __syscall_cp_asm(volatile void *, syscall_arg_t,
                       syscall_arg_t, syscall_arg_t, syscall_arg_t,
                       syscall_arg_t, syscall_arg_t, syscall_arg_t);
+#endif
 
 long __syscall_cp_c(syscall_arg_t nr,
                     syscall_arg_t u, syscall_arg_t v, syscall_arg_t w,
@@ -30,10 +34,18 @@ long __syscall_cp_c(syscall_arg_t nr,
 	    && (st==PTHREAD_CANCEL_DISABLE || nr==SYS_close))
 		return __syscall(nr, u, v, w, x, y, z);
 
+#ifdef __wasm__
+	if (self->cancel) return __cancel();
+	r = __syscall(nr, u, v, w, x, y, z);
+	if (nr!=SYS_close && self->cancel &&
+	    self->canceldisable != PTHREAD_CANCEL_DISABLE)
+		r = __cancel();
+#else
 	r = __syscall_cp_asm(&self->cancel, nr, u, v, w, x, y, z);
 	if (r==-EINTR && nr!=SYS_close && self->cancel &&
 	    self->canceldisable != PTHREAD_CANCEL_DISABLE)
 		r = __cancel();
+#endif
 	return r;
 }
 
@@ -43,13 +55,13 @@ static void _sigaddset(sigset_t *set, int sig)
 	set->__bits[s/8/sizeof *set->__bits] |= 1UL<<(s&8*sizeof *set->__bits-1);
 }
 
-extern hidden const char __cp_begin[1], __cp_end[1], __cp_cancel[1];
-
 static void cancel_handler(int sig, siginfo_t *si, void *ctx)
 {
 	pthread_t self = __pthread_self();
 	ucontext_t *uc = ctx;
+#ifndef __wasm__
 	uintptr_t pc = uc->uc_mcontext.MC_PC;
+#endif
 
 	a_barrier();
 	if (!self->cancel || self->canceldisable == PTHREAD_CANCEL_DISABLE) return;
@@ -61,6 +73,14 @@ static void cancel_handler(int sig, siginfo_t *si, void *ctx)
 		__cancel();
 	}
 
+#ifdef __wasm__
+	/* WebAssembly cannot redirect the interrupted program counter. Async
+	 * cancellation was handled above; leave deferred cancellation pending
+	 * for the cancellation-point syscall wrapper. */
+	return;
+#else
+	extern hidden const char __cp_begin[1], __cp_end[1], __cp_cancel[1];
+
 	if (pc >= (uintptr_t)__cp_begin && pc < (uintptr_t)__cp_end) {
 		uc->uc_mcontext.MC_PC = (uintptr_t)__cp_cancel;
 #ifdef CANCEL_GOT
@@ -70,6 +90,7 @@ static void cancel_handler(int sig, siginfo_t *si, void *ctx)
 	}
 
 	__syscall(SYS_tkill, self->tid, SIGCANCEL);
+#endif
 }
 
 void __testcancel()
