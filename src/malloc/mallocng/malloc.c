@@ -286,7 +286,8 @@ void *malloc(size_t n)
 	if (n >= MMAP_THRESHOLD) {
 		size_t needed = n + IB + UNIT;
 #ifdef __wasm__
-		needed += -needed & (UNIT-1);
+		/* mmap reserves the partial final maplen page implicitly. */
+		needed += -needed & 4095;
 		wrlock();
 		step_seq();
 		g = alloc_meta();
