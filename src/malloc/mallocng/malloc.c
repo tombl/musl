@@ -58,9 +58,11 @@ struct meta *alloc_meta(void)
 	if ((m = dequeue_head(&ctx.free_meta_head))) return m;
 	if (!ctx.avail_meta_count) {
 		if (!ctx.avail_meta_area_count) {
-			size_t new = 3*pagesize;
-			if (sbrk(new) == MAP_FAILED) a_crash();
-			ctx.avail_meta_areas = (void *)(new - pagesize);
+			size_t reserve = pagesize + 4096;
+			unsigned char *area = sbrk(reserve);
+			if (area == MAP_FAILED) return 0;
+			ctx.avail_meta_areas = (void *)
+				((uintptr_t)(area + 4095) & -4096UL);
 			ctx.avail_meta_area_count = pagesize>>12;
 		}
 		p = ctx.avail_meta_areas;
@@ -284,24 +286,33 @@ void *malloc(size_t n)
 	if (n >= MMAP_THRESHOLD) {
 		size_t needed = n + IB + UNIT;
 #ifdef __wasm__
+		needed += -needed & (UNIT-1);
+		wrlock();
+		step_seq();
+		g = alloc_meta();
+		if (!g) {
+			unlock();
+			return 0;
+		}
 		void *p = sbrk(needed);
+		if (p==MAP_FAILED) {
+			free_meta(g);
+			unlock();
+			return 0;
+		}
 #else
 		void *p = mmap(0, needed, PROT_READ|PROT_WRITE,
 			MAP_PRIVATE|MAP_ANON, -1, 0);
-#endif
 		if (p==MAP_FAILED) return 0;
 		wrlock();
 		step_seq();
 		g = alloc_meta();
 		if (!g) {
 			unlock();
-#ifdef __wasm__
-			printf("malloc: alloc_meta failed");
-#else
 			munmap(p, needed);
-#endif
 			return 0;
 		}
+#endif
 		g->mem = p;
 		g->mem->meta = g;
 		g->last_idx = 0;
