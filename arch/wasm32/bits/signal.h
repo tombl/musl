@@ -80,4 +80,4 @@ typedef struct __ucontext {
 #define SIGSYS    31
 #define SIGUNUSED SIGSYS
 
-#define _NSIG 64
+#define _NSIG 65
