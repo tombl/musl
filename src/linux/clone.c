@@ -1,13 +1,9 @@
 #define _GNU_SOURCE
 #include <stdarg.h>
-#ifndef __wasm__
-#include <stdlib.h>
 #include <unistd.h>
-#endif
 #include <sched.h>
 #include "pthread_impl.h"
 #include "syscall.h"
-#ifndef __wasm__
 #include "lock.h"
 #include "fork_impl.h"
 
@@ -19,20 +15,15 @@ struct clone_start_args {
 
 static int clone_start(void *arg)
 {
-	struct clone_start_args csa = *(struct clone_start_args *)arg;
-	free(arg);
+	struct clone_start_args *csa = arg;
 	__post_Fork(0);
-	__restore_sigs(&csa.sigmask);
-	return csa.func(csa.arg);
+	__restore_sigs(&csa->sigmask);
+	return csa->func(csa->arg);
 }
-#endif
 
 int clone(int (*func)(void *), void *stack, int flags, void *arg, ...)
 {
-#ifndef __wasm__
-	struct clone_start_args *csa;
-	sigset_t sigmask;
-#endif
+	struct clone_start_args csa;
 	va_list ap;
 	pid_t *ptid = 0, *ctid = 0;
 	void  *tls = 0;
@@ -40,11 +31,7 @@ int clone(int (*func)(void *), void *stack, int flags, void *arg, ...)
 	/* Flags that produce an invalid thread/TLS state are disallowed. */
 	int badflags = CLONE_THREAD | CLONE_SETTLS | CLONE_CHILD_CLEARTID;
 
-	if ((flags & badflags) || !stack
-#ifdef __wasm__
-	    || !(flags & CLONE_VM)
-#endif
-	   )
+	if ((flags & badflags) || !stack)
 		return __syscall_ret(-EINVAL);
 
 	va_start(ap, arg);
@@ -58,26 +45,14 @@ int clone(int (*func)(void *), void *stack, int flags, void *arg, ...)
 
 	if (flags & CLONE_VM) return __syscall_ret(
 		__clone(func, stack, flags, arg, ptid, tls, ctid));
-
-#ifndef __wasm__
-	csa = malloc(sizeof *csa);
-	if (!csa)
-		return __syscall_ret(-ENOMEM);
-
-	__block_all_sigs(&sigmask);
+	__block_all_sigs(&csa.sigmask);
 	LOCK(__abort_lock);
 
-	csa->func = func;
-	csa->arg = arg;
-	csa->sigmask = sigmask;
-	int ret = __clone(clone_start, stack, flags, csa, ptid, tls, ctid);
+	csa.func = func;
+	csa.arg = arg;
+	int ret = __clone(clone_start, stack, flags, &csa, ptid, tls, ctid);
 
 	__post_Fork(ret);
-	__restore_sigs(&sigmask);
-	if (ret < 0)
-		free(csa);
+	__restore_sigs(&csa.sigmask);
 	return __syscall_ret(ret);
-#else
-	return __syscall_ret(-EINVAL);
-#endif
 }

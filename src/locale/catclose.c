@@ -6,11 +6,9 @@
 
 #define V(p) be32toh(*(uint32_t *)(p))
 
-#ifndef __wasm__
 int catclose (nl_catd catd)
 {
 	char *map = (char *)catd;
-	munmap(map, V(map+8)+20);
+	__unmap_file(map, V(map+8)+20);
 	return 0;
 }
-#endif
