@@ -181,4 +181,58 @@ int sem_close(sem_t *sem)
 	munmap(sem, sizeof *sem);
 	return 0;
 }
+#else
+#include "syscall.h"
+#include "wasm_sem.h"
+
+sem_t *sem_open(const char *name, int flags, ...)
+{
+	char mapped[NAME_MAX+10];
+	unsigned value = 0;
+	mode_t mode = 0;
+	sem_t *sem;
+	va_list ap;
+	long fd;
+
+	if (!(name = __shm_mapname(name, mapped)))
+		return SEM_FAILED;
+	name += 9;
+	flags &= O_CREAT|O_EXCL;
+	if (flags & O_CREAT) {
+		va_start(ap, flags);
+		mode = va_arg(ap, mode_t) & 0666;
+		value = va_arg(ap, unsigned);
+		va_end(ap);
+	} else {
+		flags = 0;
+	}
+
+	sem = malloc(sizeof *sem);
+	if (!sem)
+		return SEM_FAILED;
+	fd = __syscall(SYS_wasm_sem_open, name, flags, mode, value);
+	if (fd < 0) {
+		__libc_free(sem);
+		__syscall_ret(fd);
+		return SEM_FAILED;
+	}
+	sem->__val[0] = fd;
+	sem->__val[1] = 0;
+	sem->__val[2] = 0;
+	sem->__val[3] = WASM_SEM_TAG;
+	return sem;
+}
+
+int sem_close(sem_t *sem)
+{
+	long result;
+
+	if (!__wasm_sem_is_named(sem)) {
+		errno = EINVAL;
+		return -1;
+	}
+	result = __syscall(SYS_close, __wasm_sem_fd(sem));
+	__libc_free(sem);
+	return __syscall_ret(result);
+}
 #endif
