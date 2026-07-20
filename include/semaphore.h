@@ -18,10 +18,8 @@ typedef struct {
 	volatile int __val[4*sizeof(long)/sizeof(int)];
 } sem_t;
 
-#ifndef __wasm__
 int    sem_close(sem_t *);
 sem_t *sem_open(const char *, int, ...);
-#endif
 int    sem_destroy(sem_t *);
 int    sem_getvalue(sem_t *__restrict, int *__restrict);
 int    sem_init(sem_t *, int, unsigned);
