@@ -17,5 +17,5 @@ LIBCC =
 # "indirect use of setjmp" or collides with the __wasm_longjmp symbol.
 WASM_SJLJ_OBJS = \
 	obj/src/setjmp/wasm32/wasm_longjmp.o obj/src/setjmp/wasm32/wasm_longjmp.lo \
-	obj/src/signal/siglongjmp.o obj/src/signal/siglongjmp.lo
+	obj/src/signal/wasm32/siglongjmp.o obj/src/signal/wasm32/siglongjmp.lo
 $(WASM_SJLJ_OBJS): CFLAGS_ALL += -mllvm -wasm-enable-sjlj

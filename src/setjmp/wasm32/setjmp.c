@@ -53,12 +53,3 @@ int setjmp(jmp_buf env)
 }
 
 int _setjmp(jmp_buf) __attribute__((__weak__, __alias__("setjmp")));
-
-// sigsetjmp is not recognised by the Wasm SjLj pass, so signal-mask
-// save/restore via sigsetjmp/siglongjmp is not yet supported; no-op fallback.
-int sigsetjmp(sigjmp_buf env, int savesigs)
-{
-	(void)env;
-	(void)savesigs;
-	return 0;
-}

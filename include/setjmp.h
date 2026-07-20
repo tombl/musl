@@ -27,6 +27,12 @@ typedef struct __jmp_buf_tag {
 typedef jmp_buf sigjmp_buf;
 int sigsetjmp (sigjmp_buf, int) __setjmp_attr;
 _Noreturn void siglongjmp (sigjmp_buf, int);
+#ifdef __wasm__
+struct __jmp_buf_tag *__wasm_sigsetjmp_prepare(sigjmp_buf, int);
+/* LLVM's Wasm SjLj pass must see setjmp directly in the caller. */
+#define sigsetjmp(env, savemask) \
+	setjmp(__wasm_sigsetjmp_prepare((env), (savemask)))
+#endif
 #endif
 
 #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) \
