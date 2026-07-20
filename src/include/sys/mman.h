@@ -13,9 +13,9 @@ hidden int __munmap(void *, size_t);
 hidden void *__mremap(void *, size_t, size_t, int, ...);
 hidden int __madvise(void *, size_t, int);
 hidden int __mprotect(void *, size_t, int);
+#endif
 
 hidden char *__shm_mapname(const char *, char *);
-#endif
 
 hidden const unsigned char *__map_file(const char *, size_t *);
 hidden void __unmap_file(const char *, size_t);

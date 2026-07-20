@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <stdint.h>
 #include "lock.h"
 #include "fork_impl.h"
 
@@ -20,7 +21,11 @@
 #define free undef
 
 static struct {
+#ifdef __wasm__
+	uint64_t id;
+#else
 	ino_t ino;
+#endif
 	sem_t *sem;
 	int refcnt;
 } *semtab;
@@ -180,5 +185,125 @@ int sem_close(sem_t *sem)
 	UNLOCK(lock);
 	munmap(sem, sizeof *sem);
 	return 0;
+}
+#else
+#include "syscall.h"
+#include "wasm_sem.h"
+
+sem_t *sem_open(const char *name, int flags, ...)
+{
+	char mapped[NAME_MAX+10];
+	unsigned value = 0;
+	mode_t mode = 0;
+	sem_t *sem;
+	sem_t *result;
+	va_list ap;
+	uint64_t id;
+	long fd;
+	int cnt;
+	int i;
+	int slot;
+
+	if (!(name = __shm_mapname(name, mapped)))
+		return SEM_FAILED;
+	name += 9;
+	flags &= O_CREAT|O_EXCL;
+	if (flags & O_CREAT) {
+		va_start(ap, flags);
+		mode = va_arg(ap, mode_t) & 0666;
+		value = va_arg(ap, unsigned);
+		va_end(ap);
+	} else {
+		flags = 0;
+	}
+
+	sem = malloc(sizeof *sem);
+	if (!sem)
+		return SEM_FAILED;
+
+	LOCK(lock);
+	if (!semtab && !(semtab = calloc(sizeof *semtab, SEM_NSEMS_MAX))) {
+		UNLOCK(lock);
+		__libc_free(sem);
+		return SEM_FAILED;
+	}
+	slot = -1;
+	for (cnt=i=0; i<SEM_NSEMS_MAX; i++) {
+		cnt += semtab[i].refcnt;
+		if (!semtab[i].sem && slot < 0) slot = i;
+	}
+	if (cnt == INT_MAX || slot < 0) {
+		errno = EMFILE;
+		UNLOCK(lock);
+		__libc_free(sem);
+		return SEM_FAILED;
+	}
+	semtab[slot].sem = (sem_t *)-1;
+	UNLOCK(lock);
+
+	fd = __syscall(SYS_wasm_sem_open, name, flags, mode, value, &id);
+	if (fd < 0) {
+		__libc_free(sem);
+		__syscall_ret(fd);
+		LOCK(lock);
+		semtab[slot].sem = 0;
+		UNLOCK(lock);
+		return SEM_FAILED;
+	}
+	sem->__val[0] = fd;
+	sem->__val[1] = 0;
+	sem->__val[2] = 0;
+	sem->__val[3] = WASM_SEM_TAG;
+
+	LOCK(lock);
+	for (i=0; i<SEM_NSEMS_MAX && semtab[i].id != id; i++);
+	if (i<SEM_NSEMS_MAX) {
+		semtab[slot].sem = 0;
+		semtab[i].refcnt++;
+		result = semtab[i].sem;
+	} else {
+		semtab[slot].id = id;
+		semtab[slot].sem = sem;
+		semtab[slot].refcnt = 1;
+		result = sem;
+	}
+	UNLOCK(lock);
+
+	if (result != sem) {
+		__syscall(SYS_close, fd);
+		__libc_free(sem);
+	}
+	return result;
+}
+
+int sem_close(sem_t *sem)
+{
+	long result;
+	int fd;
+	int i;
+
+	if (!__wasm_sem_is_named(sem)) {
+		errno = EINVAL;
+		return -1;
+	}
+	LOCK(lock);
+	for (i=0; semtab && i<SEM_NSEMS_MAX && semtab[i].sem != sem; i++);
+	if (!semtab || i == SEM_NSEMS_MAX) {
+		UNLOCK(lock);
+		errno = EINVAL;
+		return -1;
+	}
+	if (--semtab[i].refcnt) {
+		UNLOCK(lock);
+		return 0;
+	}
+	fd = __wasm_sem_fd(sem);
+	semtab[i].id = 0;
+	semtab[i].sem = 0;
+	UNLOCK(lock);
+
+	result = __syscall(SYS_close, fd);
+	__libc_free(sem);
+	return __syscall_ret(result);
 }
 #endif

@@ -1,9 +1,17 @@
 #include <semaphore.h>
 #include <limits.h>
 #include "pthread_impl.h"
+#ifdef __wasm__
+#include "syscall.h"
+#include "wasm_sem.h"
+#endif
 
 int sem_post(sem_t *sem)
 {
+#ifdef __wasm__
+	if (__wasm_sem_is_named(sem))
+		return syscall(SYS_wasm_sem_post, __wasm_sem_fd(sem));
+#endif
 	int val, new, waiters, priv = sem->__val[2];
 	do {
 		val = sem->__val[0];
