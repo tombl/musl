@@ -11,5 +11,8 @@ int sem_init(sem_t *sem, int pshared, unsigned value)
 	sem->__val[0] = value;
 	sem->__val[1] = 0;
 	sem->__val[2] = pshared ? 0 : 128;
+#ifdef __wasm__
+	sem->__val[3] = 0;
+#endif
 	return 0;
 }

@@ -328,5 +328,12 @@
 #define __NR_vmsplice 75
 #define __NR_wait4 260
 #define __NR_waitid 95
+#define __NR_wasm_sem_getvalue (__NR_arch_specific_syscall + 7)
+#define __NR_wasm_sem_open (__NR_arch_specific_syscall + 1)
+#define __NR_wasm_sem_post (__NR_arch_specific_syscall + 6)
+#define __NR_wasm_sem_timedwait (__NR_arch_specific_syscall + 5)
+#define __NR_wasm_sem_trywait (__NR_arch_specific_syscall + 4)
+#define __NR_wasm_sem_unlink (__NR_arch_specific_syscall + 2)
+#define __NR_wasm_sem_wait (__NR_arch_specific_syscall + 3)
 #define __NR_write 64
 #define __NR_writev 66
