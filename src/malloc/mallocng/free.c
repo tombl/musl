@@ -144,11 +144,16 @@ void free(void *p)
 
 	wrlock();
 	struct mapinfo mi = nontrivial_free(g, idx);
+#ifdef __wasm__
+	if (mi.len)
+		__malloc_map_free(mi.base, mi.len);
+#endif
 	unlock();
+#ifndef __wasm__
 	if (mi.len) {
-		// puts("attempted to munmap");
-		// int e = errno;
-		// munmap(mi.base, mi.len);
-		// errno = e;
+		int e = errno;
+		munmap(mi.base, mi.len);
+		errno = e;
 	}
+#endif
 }

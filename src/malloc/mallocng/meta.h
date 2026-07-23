@@ -71,6 +71,14 @@ struct meta *alloc_meta(void);
 __attribute__((__visibility__("hidden")))
 int is_allzero(void *);
 
+#ifdef __wasm__
+__attribute__((__visibility__("hidden")))
+void *__malloc_map_alloc(size_t);
+
+__attribute__((__visibility__("hidden")))
+void __malloc_map_free(void *, size_t);
+#endif
+
 static inline void queue(struct meta **phead, struct meta *m)
 {
 	assert(!m->next);
