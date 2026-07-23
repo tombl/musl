@@ -6,7 +6,6 @@
 #include <errno.h>
 
 void *sbrk(intptr_t);
-int brk(void *);
 
 #include "meta.h"
 
@@ -221,7 +220,7 @@ static struct meta *alloc_group(int sc, size_t req)
 		}
 
 #ifdef __wasm__
-		p = sbrk(needed);
+		p = __malloc_map_alloc(needed);
 #else
 		p = mmap(0, needed, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
 #endif
@@ -295,7 +294,7 @@ void *malloc(size_t n)
 			unlock();
 			return 0;
 		}
-		void *p = sbrk(needed);
+		void *p = __malloc_map_alloc(needed);
 		if (p==MAP_FAILED) {
 			free_meta(g);
 			unlock();
@@ -377,7 +376,15 @@ success:
 
 int is_allzero(void *p)
 {
+#ifdef __wasm__
+	/*
+	 * mmap-backed allocations are initially zeroed, but wasm map extents can
+	 * contain data from their previous allocation.
+	 */
+	return 0;
+#else
 	struct meta *g = get_meta(p);
 	return g->sizeclass >= 48 ||
 		get_stride(g) < UNIT*size_classes[g->sizeclass];
+#endif
 }
