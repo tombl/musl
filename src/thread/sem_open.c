@@ -256,7 +256,10 @@ sem_t *sem_open(const char *name, int flags, ...)
 	sem->__val[3] = WASM_SEM_TAG;
 
 	LOCK(lock);
-	for (i=0; i<SEM_NSEMS_MAX && semtab[i].id != id; i++);
+	for (i=0; i<SEM_NSEMS_MAX; i++)
+		if (semtab[i].sem && semtab[i].sem != (sem_t *)-1 &&
+		    semtab[i].id == id)
+			break;
 	if (i<SEM_NSEMS_MAX) {
 		semtab[slot].sem = 0;
 		semtab[i].refcnt++;
