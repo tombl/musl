@@ -18,18 +18,6 @@ int sem_timedwait(sem_t *restrict sem, const struct timespec *restrict at)
 #ifdef __wasm__
 	if (__wasm_sem_is_named(sem)) {
 		long result;
-		int oldtype;
-		int cancellable = __pthread_self()->canceldisable ==
-			PTHREAD_CANCEL_ENABLE;
-
-		/* WebAssembly cannot redirect an interrupted program counter into
-		 * musl's cancellation trampoline. Make only the blocking syscall
-		 * window asynchronous so SIGCANCEL can terminate a deferred-cancel
-		 * waiter rather than having SA_RESTART put it back to sleep. As with
-		 * other wasm cancellation points, cancellation can still win after a
-		 * successful syscall because the interrupted PC cannot be inspected. */
-		if (cancellable)
-			pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldtype);
 
 		if (at) {
 			long long kernel_time[2] = { at->tv_sec, at->tv_nsec };
@@ -40,8 +28,6 @@ int sem_timedwait(sem_t *restrict sem, const struct timespec *restrict at)
 			result = __syscall_cp(SYS_wasm_sem_wait,
 				__wasm_sem_fd(sem));
 		}
-		if (cancellable)
-			pthread_setcanceltype(oldtype, 0);
 		return __syscall_ret(result);
 	}
 #endif

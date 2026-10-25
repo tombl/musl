@@ -3,6 +3,14 @@
 #include "pthread_impl.h"
 #include "syscall.h"
 
+#ifdef __wasm__
+/* From the kernel's arch/wasm uapi headers. */
+#define __WASM_SYSCALL_CP 0x40000000
+#define SA_WASM_CANCEL 0x00001000
+#else
+#define SA_WASM_CANCEL 0
+#endif
+
 hidden long __cancel(), __syscall_cp_c();
 
 long __cancel()
@@ -35,17 +43,19 @@ long __syscall_cp_c(syscall_arg_t nr,
 		return __syscall(nr, u, v, w, x, y, z);
 
 #ifdef __wasm__
+	/* The kernel stands in for the PC-window check of __syscall_cp_asm:
+	 * a syscall marked as a cancellation point returns -EINTR rather than
+	 * restarting once the SA_WASM_CANCEL handler has run. The check below
+	 * then acts on the cancel exactly as it does natively, and a syscall
+	 * that completed keeps its result for the caller. */
 	if (self->cancel) return __cancel();
-	r = __syscall(nr, u, v, w, x, y, z);
-	if (nr!=SYS_close && self->cancel &&
-	    self->canceldisable != PTHREAD_CANCEL_DISABLE)
-		r = __cancel();
+	r = __syscall(nr | __WASM_SYSCALL_CP, u, v, w, x, y, z);
 #else
 	r = __syscall_cp_asm(&self->cancel, nr, u, v, w, x, y, z);
+#endif
 	if (r==-EINTR && nr!=SYS_close && self->cancel &&
 	    self->canceldisable != PTHREAD_CANCEL_DISABLE)
 		r = __cancel();
-#endif
 	return r;
 }
 
@@ -103,7 +113,7 @@ void __testcancel()
 static void init_cancellation()
 {
 	struct sigaction sa = {
-		.sa_flags = SA_SIGINFO | SA_RESTART | SA_ONSTACK,
+		.sa_flags = SA_SIGINFO | SA_RESTART | SA_ONSTACK | SA_WASM_CANCEL,
 		.sa_sigaction = cancel_handler
 	};
 	memset(&sa.sa_mask, -1, _NSIG/8);
