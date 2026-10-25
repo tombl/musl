@@ -12,6 +12,21 @@ int pthread_getattr_np(pthread_t t, pthread_attr_t *a)
 		a->_a_stackaddr = (uintptr_t)t->stack;
 		a->_a_stacksize = t->stack_size;
 	} else {
+#ifdef __wasm__
+		/* The main thread runs on the stack wasm-ld places in linear
+		 * memory (-z stack-size), and the linker defines its bounds
+		 * for static links, which are all this port builds. A child
+		 * cloned from the main thread runs on another stack with the
+		 * main thread's descriptor, so check that the bounds apply. */
+		extern char __stack_low[], __stack_high[];
+		char here;
+		if (t == __pthread_self() &&
+		    ((uintptr_t)&here < (uintptr_t)__stack_low ||
+		     (uintptr_t)&here >= (uintptr_t)__stack_high))
+			return ENOSYS;
+		a->_a_stackaddr = (uintptr_t)__stack_high;
+		a->_a_stacksize = __stack_high - __stack_low;
+#else
 		// char *p = (void *)libc.auxv;
 		// size_t l = PAGE_SIZE;
 		// p += -(uintptr_t)p & PAGE_SIZE-1;
@@ -20,6 +35,7 @@ int pthread_getattr_np(pthread_t t, pthread_attr_t *a)
 		// 	l += PAGE_SIZE;
 		// a->_a_stacksize = l;
 		a_crash();
+#endif
 	}
 	return 0;
 }
