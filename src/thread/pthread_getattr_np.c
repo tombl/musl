@@ -12,6 +12,13 @@ int pthread_getattr_np(pthread_t t, pthread_attr_t *a)
 		a->_a_stackaddr = (uintptr_t)t->stack;
 		a->_a_stacksize = t->stack_size;
 	} else {
+#ifdef __wasm__
+		/* The main thread runs on the stack wasm-ld places in linear
+		 * memory (-z stack-size), and the linker defines its bounds. */
+		extern char __stack_low[], __stack_high[];
+		a->_a_stackaddr = (uintptr_t)__stack_high;
+		a->_a_stacksize = __stack_high - __stack_low;
+#else
 		// char *p = (void *)libc.auxv;
 		// size_t l = PAGE_SIZE;
 		// p += -(uintptr_t)p & PAGE_SIZE-1;
@@ -20,6 +27,7 @@ int pthread_getattr_np(pthread_t t, pthread_attr_t *a)
 		// 	l += PAGE_SIZE;
 		// a->_a_stacksize = l;
 		a_crash();
+#endif
 	}
 	return 0;
 }
