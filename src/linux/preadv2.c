@@ -9,9 +9,9 @@ ssize_t preadv2(int fd, const struct iovec *iov, int count, off_t ofs, int flags
 	if (!flags) {
 		if (ofs==-1) return readv(fd, iov, count);
 		return syscall_cp(SYS_preadv, fd, iov, count,
-			(long)(ofs), (long)(ofs>>32));
+			(unsigned long)(ofs), (unsigned long)(ofs>>32));
 	}
 #endif
 	return syscall_cp(SYS_preadv2, fd, iov, count,
-		(long)(ofs), (long)(ofs>>32), flags);
+		(unsigned long)(ofs), (unsigned long)(ofs>>32), flags);
 }

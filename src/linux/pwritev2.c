@@ -9,9 +9,9 @@ ssize_t pwritev2(int fd, const struct iovec *iov, int count, off_t ofs, int flag
 	if (!flags) {
 		if (ofs==-1) return writev(fd, iov, count);
 		return syscall_cp(SYS_pwritev, fd, iov, count,
-			(long)(ofs), (long)(ofs>>32));
+			(unsigned long)(ofs), (unsigned long)(ofs>>32));
 	}
 #endif
 	return syscall_cp(SYS_pwritev2, fd, iov, count,
-		(long)(ofs), (long)(ofs>>32), flags);
+		(unsigned long)(ofs), (unsigned long)(ofs>>32), flags);
 }

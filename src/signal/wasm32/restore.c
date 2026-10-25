@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 __attribute__((import_module("linux"), import_name("copy_siginfo")))
-int __wasm_copy_siginfo(siginfo_t *);
+int __wasm_copy_siginfo(unsigned long long);
 
 hidden void __restore(void)
 {
@@ -24,7 +24,7 @@ hidden void __restore_rt(uintptr_t fn, int sig)
 	 * siginfo carries the source information applications depend on. */
 	ucontext_t context = {0};
 
-	if (__wasm_copy_siginfo(&info)) return;
+	if (__wasm_copy_siginfo((uintptr_t)&info)) return;
 
 	handler(sig, &info, &context);
 }
